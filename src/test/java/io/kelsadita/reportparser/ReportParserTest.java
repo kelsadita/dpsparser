@@ -18,5 +18,20 @@ public class ReportParserTest {
 
         assertThat(actualIncidentBreak.get(0), equalTo("DISTURBANCE"));
         assertThat(actualIncidentBreak.get(1), equalTo("Disturbing The Peace"));
+
+        actualIncidentBreak =
+                reportParser.breakDescriptiveIncident("VANDALISM Vandalism-Misdemeanor");
+        assertThat(actualIncidentBreak.get(0), equalTo("VANDALISM"));
+        assertThat(actualIncidentBreak.get(1), equalTo("Vandalism-Misdemeanor"));
+
+        actualIncidentBreak =
+                reportParser.breakDescriptiveIncident("VAND-ALISM Vandalism/Misdemeanor");
+        assertThat(actualIncidentBreak.get(0), equalTo("VAND-ALISM"));
+        assertThat(actualIncidentBreak.get(1), equalTo("Vandalism/Misdemeanor"));
+
+        actualIncidentBreak =
+                reportParser.breakDescriptiveIncident("VAND-ALI-SM Vandalism/Misdem-eanor");
+        assertThat(actualIncidentBreak.get(0), equalTo("VAND-ALI-SM"));
+        assertThat(actualIncidentBreak.get(1), equalTo("Vandalism/Misdem-eanor"));
     }
 }

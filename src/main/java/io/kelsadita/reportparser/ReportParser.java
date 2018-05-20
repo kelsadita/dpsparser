@@ -1,9 +1,11 @@
 package io.kelsadita.reportparser;
 
 import org.apache.commons.io.FileUtils;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -13,7 +15,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class ReportParser {
-    public String readTextReport() throws IOException {
+
+    private void readTextReport() throws IOException {
         File reportDir = new File(ReportParser.class.getResource("/reports").getFile());
         List<File> files =
                 Arrays.asList(Objects.requireNonNull(reportDir.listFiles((d, name) -> name.endsWith(".txt"))));
@@ -21,9 +24,6 @@ public class ReportParser {
              files) {
             parseDpsReportToJson(dpsReport);
         }
-
-        return "";
-
     }
 
     private void parseDpsReportToJson(File dpsReport) throws IOException {
@@ -32,13 +32,21 @@ public class ReportParser {
         // Preprocessing
         dpsReportString = dpsReportString.replaceAll("University of Southern California\\n" +
                 "Department of Public Safety\\n" +
-                "Daily Incident Log\\nFrom \\d+\\/\\d+\\/\\d+ To \\d+\\/\\d+\\/\\d+", "");
+                "Daily Incident Log\\nFrom \\d+/\\d+/\\d+ To \\d+/\\d+/\\d+", "");
 
         // Step1: Split the entire text report on the basis of Incident
         List<String> reportSections = Arrays.asList(dpsReportString.split("Incident:"));
+        JSONArray reportsJsons = new JSONArray();
         for (int index = 1; index < reportSections.size(); index ++) {
             String reportSection = reportSections.get(index);
             JSONObject reportSectionJson = convertStringSectionToJson(reportSection);
+            reportsJsons.put(reportSectionJson);
+        }
+
+        // Step2: Saving the reports json array to file in same location
+        String outputPath = ReportParser.class.getResource("/jsonreports").getPath();
+        try (FileWriter file = new FileWriter(outputPath + "/" + dpsReport.getName() + ".json")) {
+            file.write(reportsJsons.toString());
         }
     }
 
@@ -66,7 +74,7 @@ public class ReportParser {
             reportJsonRetVal.put("disposition", "");
         }
 
-        // Parsing incident
+        // Parsing incident and report Id
         Pattern incidentPattern =
                 Pattern.compile("(\\d+)\\n(.*?)\\nReported: -", Pattern.MULTILINE);
         Matcher incidentPatternMatcher = incidentPattern.matcher(reportSection);
@@ -83,14 +91,59 @@ public class ReportParser {
             reportJsonRetVal.put("incidentDesc", "");
         }
 
+        // Parsing occurred
+        String occurredAtLine = reportSection.split("\n")[1];
+        Pattern occurredToAndFromPattern =
+                Pattern.compile("(\\d+/\\d+/\\d+\\s+\\d+:\\d+\\s+\\w{2})\\s*(\\d+/\\d+/\\d+)");
+        Matcher occurredToAndFromMatcher = occurredToAndFromPattern.matcher(occurredAtLine);
+        String occcurredFrom = "";
+        String occcurredTo = "";
+        if (occurredToAndFromMatcher.find()) {
+            occcurredFrom = occurredToAndFromMatcher.group(1);
+            occcurredTo = occurredToAndFromMatcher.group(2);
+        }
 
-        System.out.println(reportJsonRetVal);
+
+        Pattern occuredToTimePattern = Pattern.compile("Location:\\n(.*?)-\\nReport #:");
+        Matcher occuredToTimeMatcher = occuredToTimePattern.matcher(reportSection);
+        String occuredToTime = "";
+        if (occuredToTimeMatcher.find()) {
+            occuredToTime = occuredToTimeMatcher.group(1).trim();
+        }
+        occcurredTo += " " + occuredToTime;
+
+        reportJsonRetVal.put("occurredFrom", occcurredFrom);
+        reportJsonRetVal.put("occuredTo", occcurredTo);
+
+
+        // Parsing reported and location after removing the first line
+        reportSection = reportSection.substring(reportSection.indexOf(System.getProperty("line.separator"))+1);
+        reportSection = reportSection.substring(reportSection.indexOf(System.getProperty("line.separator"))+1);
+        Pattern reportedAndLocationPattern =
+                Pattern.compile("(\\d+/\\d+/\\d+\\s+\\d+:\\d+\\s+\\w{2})(.*?)\\s*(\\d+)", Pattern.MULTILINE);
+        Matcher reportedAndLocationMatcher = reportedAndLocationPattern.matcher(reportSection);
+        if (reportedAndLocationMatcher.find()) {
+            reportJsonRetVal.put("reportedAt", reportedAndLocationMatcher.group(1).trim());
+            reportJsonRetVal.put("location", reportedAndLocationMatcher.group(2).trim());
+        } else {
+            reportJsonRetVal.put("reportedAt", "");
+            reportJsonRetVal.put("location", "");
+        }
+
         return reportJsonRetVal;
     }
 
     public List<String> breakDescriptiveIncident(String incident) {
-        List<String> descriptiveIncidents = new ArrayList<>();
-
+        List<String> descriptiveIncidents = new ArrayList<>(2);
+        Pattern incidentBreakPattern = Pattern.compile("(\\b[A-Z\\s\\p{Punct}]+\\b)(\\b[A-Za-z\\p{Punct}\\s]+\\b)");
+        Matcher incidentBreakMatcher = incidentBreakPattern.matcher(incident);
+        if (incidentBreakMatcher.find()) {
+            descriptiveIncidents.add(incidentBreakMatcher.group(1).trim());
+            descriptiveIncidents.add(incidentBreakMatcher.group(2).trim());
+        } else {
+            descriptiveIncidents.add("");
+            descriptiveIncidents.add("");
+        }
         return descriptiveIncidents;
     }
 
