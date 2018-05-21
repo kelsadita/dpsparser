@@ -44,8 +44,10 @@ public class ReportParser {
         }
 
         // Step2: Saving the reports json array to file in same location
-        String outputPath = ReportParser.class.getResource("/jsonreports").getPath();
-        try (FileWriter file = new FileWriter(outputPath + "/" + dpsReport.getName() + ".json")) {
+        String outputPath = ReportParser.class.getResource("/reports").getPath();
+        String outputFilePath = outputPath + "/" + dpsReport.getName() + ".json";
+        System.out.println(outputFilePath);
+        try (FileWriter file = new FileWriter(outputFilePath)) {
             file.write(reportsJsons.toString());
         }
     }
@@ -113,18 +115,21 @@ public class ReportParser {
         occcurredTo += " " + occuredToTime;
 
         reportJsonRetVal.put("occurredFrom", occcurredFrom);
-        reportJsonRetVal.put("occuredTo", occcurredTo);
+        reportJsonRetVal.put("occurredTo", occcurredTo);
 
 
         // Parsing reported and location after removing the first line
         reportSection = reportSection.substring(reportSection.indexOf(System.getProperty("line.separator"))+1);
         reportSection = reportSection.substring(reportSection.indexOf(System.getProperty("line.separator"))+1);
         Pattern reportedAndLocationPattern =
-                Pattern.compile("(\\d+/\\d+/\\d+\\s+\\d+:\\d+\\s+\\w{2})(.*?)\\s*(\\d+)", Pattern.MULTILINE);
+                Pattern.compile("(\\d+/\\d+/\\d+\\s+\\d+:\\d+\\s+\\w{2})([\\dA-Z\\s\\p{Punct}]*?)(\\d{7})", Pattern.MULTILINE);
         Matcher reportedAndLocationMatcher = reportedAndLocationPattern.matcher(reportSection);
         if (reportedAndLocationMatcher.find()) {
-            reportJsonRetVal.put("reportedAt", reportedAndLocationMatcher.group(1).trim());
-            reportJsonRetVal.put("location", reportedAndLocationMatcher.group(2).trim());
+            String reportedAt = reportedAndLocationMatcher.group(1).trim();
+            String location = reportedAndLocationMatcher.group(2).trim();
+            location = location.replaceAll("\n", " ");
+            reportJsonRetVal.put("reportedAt", reportedAt);
+            reportJsonRetVal.put("location", location);
         } else {
             reportJsonRetVal.put("reportedAt", "");
             reportJsonRetVal.put("location", "");
