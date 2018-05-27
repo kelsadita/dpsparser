@@ -2,11 +2,12 @@ from datetime import date, timedelta
 import requests
 
 DPS_URL = 'https://dps.usc.edu/files/'
-START_DATE = date(2018, 5, 1)
-END_DATE = date(2018, 5, 3)
+START_DATE = date(2015, 1, 1)
+END_DATE = date(2016, 1, 1)
 STATUS_CODE_OK = 200
 delta = END_DATE - START_DATE         # timedelta
 
+file_name_path = "/Users/kalpesh/Desktop/dps-pdf/"
 for day in range(delta.days + 1):
     current_date = (START_DATE + timedelta(days=day))
 
@@ -18,10 +19,11 @@ for day in range(delta.days + 1):
 
     date_url = year + '/' + month + '/'
     file_name = month + date + str(two_digit_year) + '.pdf'
+    
     url = DPS_URL + date_url + file_name
     response = requests.get(url)
     if response.status_code != STATUS_CODE_OK:
-        print url + " no pdf generated"
+        print(url + " no pdf generated")
     else:
-        with open(file_name, "wb") as f:
+        with open(file_name_path + file_name, "wb") as f:
             f.write(response.content)

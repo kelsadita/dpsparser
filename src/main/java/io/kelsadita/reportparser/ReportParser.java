@@ -1,6 +1,9 @@
 package io.kelsadita.reportparser;
 
 import org.apache.commons.io.FileUtils;
+import org.joda.time.DateTime;
+import org.joda.time.LocalTime;
+import org.joda.time.format.DateTimeFormat;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -114,8 +117,8 @@ public class ReportParser {
         }
         occcurredTo += " " + occuredToTime;
 
-        reportJsonRetVal.put("occurredFrom", occcurredFrom);
-        reportJsonRetVal.put("occurredTo", occcurredTo);
+        reportJsonRetVal.put("occurredFrom", convertToStdDate(occcurredFrom));
+        reportJsonRetVal.put("occurredTo", convertToStdDate(occcurredTo));
 
 
         // Parsing reported and location after removing the first line
@@ -128,14 +131,39 @@ public class ReportParser {
             String reportedAt = reportedAndLocationMatcher.group(1).trim();
             String location = reportedAndLocationMatcher.group(2).trim();
             location = location.replaceAll("\n", " ");
-            reportJsonRetVal.put("reportedAt", reportedAt);
+            reportJsonRetVal.put("reportedAt", convertToStdDate(reportedAt));
             reportJsonRetVal.put("location", location);
         } else {
             reportJsonRetVal.put("reportedAt", "");
             reportJsonRetVal.put("location", "");
         }
 
+        System.out.println(reportJsonRetVal);
         return reportJsonRetVal;
+    }
+
+    private String convertToStdDate(String dateRawString) {
+        Pattern dateTimePattern = Pattern.compile("(\\d{1,2})/(\\d{1,2})/(\\d{1,2})\\s+(\\d{1,2}):(\\d{1,2})\\s+(am|pm)");
+        Matcher dateTimePatternMatcher = dateTimePattern.matcher(dateRawString);
+        if (dateTimePatternMatcher.find()) {
+            int month = Integer.parseInt(dateTimePatternMatcher.group(1));
+            int day = Integer.parseInt(dateTimePatternMatcher.group(2));
+            int year = Integer.parseInt(dateTimePatternMatcher.group(3));
+
+            String hours = dateTimePatternMatcher.group(4);
+            String minutes = dateTimePatternMatcher.group(5);
+            String section = dateTimePatternMatcher.group(6);
+            String wellFormattedTime = hours + ":" + minutes + " " + section;
+
+            LocalTime localTime = DateTimeFormat.forPattern("hh:mm aa").parseLocalTime(wellFormattedTime);
+            int hour = localTime.getHourOfDay();
+            int minute = localTime.getMinuteOfHour();
+
+            DateTime dateTime = new DateTime(year, month, day, hour, minute);
+            return dateTime.toString();
+        } else {
+            return dateRawString;
+        }
     }
 
     public List<String> breakDescriptiveIncident(String incident) {
