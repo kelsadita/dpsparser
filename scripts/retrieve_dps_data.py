@@ -2,8 +2,8 @@ from datetime import date, timedelta
 import requests
 
 DPS_URL = 'https://dps.usc.edu/files/'
-START_DATE = date(2015, 1, 1)
-END_DATE = date(2016, 1, 1)
+START_DATE = date(2018, 5, 4)
+END_DATE = date(2018, 6, 12)
 STATUS_CODE_OK = 200
 delta = END_DATE - START_DATE         # timedelta
 
@@ -19,7 +19,6 @@ for day in range(delta.days + 1):
 
     date_url = year + '/' + month + '/'
     file_name = month + date + str(two_digit_year) + '.pdf'
-    
     url = DPS_URL + date_url + file_name
     response = requests.get(url)
     if response.status_code != STATUS_CODE_OK:

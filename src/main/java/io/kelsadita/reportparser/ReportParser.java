@@ -1,6 +1,7 @@
 package io.kelsadita.reportparser;
 
 import org.apache.commons.io.FileUtils;
+import org.bson.Document;
 import org.joda.time.DateTime;
 import org.joda.time.LocalTime;
 import org.joda.time.format.DateTimeFormat;
@@ -8,7 +9,6 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -19,12 +19,19 @@ import java.util.regex.Pattern;
 
 public class ReportParser {
 
+    private static String DISPOSITION_REGEX = "Disposition: (.*?)$";
+
+
     private void readTextReport() throws IOException {
-        File reportDir = new File(ReportParser.class.getResource("/reports").getFile());
+        File reportDir = new File(ReportParser.class.getResource("/dps-pdf-text").getFile());
         List<File> files =
                 Arrays.asList(Objects.requireNonNull(reportDir.listFiles((d, name) -> name.endsWith(".txt"))));
+
+        int count = 0;
         for (File dpsReport:
              files) {
+            count ++;
+            System.out.println(count + ": Processing file: " + dpsReport.getName());
             parseDpsReportToJson(dpsReport);
         }
     }
@@ -40,37 +47,32 @@ public class ReportParser {
         // Step1: Split the entire text report on the basis of Incident
         List<String> reportSections = Arrays.asList(dpsReportString.split("Incident:"));
         JSONArray reportsJsons = new JSONArray();
+        List<Document> reports = new ArrayList<>();
         for (int index = 1; index < reportSections.size(); index ++) {
             String reportSection = reportSections.get(index);
-            JSONObject reportSectionJson = convertStringSectionToJson(reportSection);
-            reportsJsons.put(reportSectionJson);
+            Document report = Document.parse(convertStringSectionToJson(reportSection).toString());
+            reports.add(report);
         }
-
-        // Step2: Saving the reports json array to file in same location
-        String outputPath = ReportParser.class.getResource("/reports").getPath();
-        String outputFilePath = outputPath + "/" + dpsReport.getName() + ".json";
-        System.out.println(outputFilePath);
-        try (FileWriter file = new FileWriter(outputFilePath)) {
-            file.write(reportsJsons.toString());
-        }
+        ReportSaver.persistReport(reports);
     }
 
     private JSONObject convertStringSectionToJson(String reportSection) {
         final JSONObject reportJsonRetVal = new JSONObject();
 
         // Parsing summary
-        Pattern summaryPattern = Pattern.compile("Summary: (.*)?", Pattern.DOTALL);
+        Pattern summaryPattern = Pattern.compile("Disposition: (.*)?\n(.*)?:", Pattern.DOTALL);
         Matcher summaryPatternMatcher = summaryPattern.matcher(reportSection);
         if (summaryPatternMatcher.find()) {
             String summary = summaryPatternMatcher.group(1);
             reportJsonRetVal.put("summary", summary.replaceAll("\n", " "));
         }
         else {
+            // TODO: Implement line by line parsing of the summary
             reportJsonRetVal.put("summary", "");
         }
 
         // Parsing disposition
-        Pattern dispositionPattern = Pattern.compile("Disposition: (.*)?\nSummary:", Pattern.DOTALL);
+        Pattern dispositionPattern = Pattern.compile(DISPOSITION_REGEX, Pattern.MULTILINE);
         Matcher dispositionPatternMatcher = dispositionPattern.matcher(reportSection);
         if (dispositionPatternMatcher.find()) {
             String disposition = dispositionPatternMatcher.group(1);
@@ -138,8 +140,9 @@ public class ReportParser {
             reportJsonRetVal.put("location", "");
         }
 
-        System.out.println(reportJsonRetVal);
         return reportJsonRetVal;
+
+//        ReportSaver.persistReport(reportJsonRetVal);
     }
 
     private String convertToStdDate(String dateRawString) {
@@ -148,7 +151,7 @@ public class ReportParser {
         if (dateTimePatternMatcher.find()) {
             int month = Integer.parseInt(dateTimePatternMatcher.group(1));
             int day = Integer.parseInt(dateTimePatternMatcher.group(2));
-            int year = Integer.parseInt(dateTimePatternMatcher.group(3));
+            int year = Integer.parseInt("20" + dateTimePatternMatcher.group(3));
 
             String hours = dateTimePatternMatcher.group(4);
             String minutes = dateTimePatternMatcher.group(5);
