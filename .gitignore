@@ -1,3 +1,6 @@
 .idea/
 dpsreportparser.iml
 target/
+src/main/resources/dps-pdf-text/*.txt
+src/main/resources/debug/
+src/main/resources/dps-pdf-text-old/
